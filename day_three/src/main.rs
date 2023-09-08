@@ -6,10 +6,7 @@ use std::{
 
 struct Canvas {
     frame: Vec<Vec<char>>,
-    squares_start: Vec<(usize, usize)>,
-    squares_dimensions: Vec<(usize, usize)>,
-    width: usize,
-    height: usize,
+    squares: Vec<(usize, usize, usize, usize)>,
     overlaps: usize,
 }
 
@@ -18,11 +15,9 @@ impl Canvas {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
 
-        let mut width = 1;
-        let mut height = 1;
+        let (mut width, mut height) = (1, 1);
 
-        let mut squares_start = Vec::<(usize, usize)>::new();
-        let mut squares_dimensions = Vec::<(usize, usize)>::new();
+        let mut squares = Vec::new();
 
         for line in reader.lines() {
             let line = line?;
@@ -30,54 +25,39 @@ impl Canvas {
 
             if let [_, _, coords, dimensions] = &tokens[..] {
                 if let [x_str, y_str] = coords.split(',').collect::<Vec<_>>().as_slice() {
-                    if let (Ok(x), Ok(y)) = (
-                        x_str.parse::<usize>(),
-                        y_str[..y_str.len() - 1].parse::<usize>(),
-                    ) {
-                        if let [w, h] = dimensions.split('x').collect::<Vec<_>>().as_slice() {
-                            let w = w.parse::<usize>()?;
-                            let h = h.parse::<usize>()?;
+                    let (x, y) = (
+                        x_str.parse::<usize>()?,
+                        y_str[..y_str.len() - 1].parse::<usize>()?,
+                    );
+                    if let [w, h] = dimensions.split('x').collect::<Vec<_>>().as_slice() {
+                        let w = w.parse::<usize>()?;
+                        let h = h.parse::<usize>()?;
 
-                            squares_start.push((x, y));
-                            squares_dimensions.push((w, h));
+                        squares.push((x, y, w, h));
 
-                            height = if height > (h + y) { height } else { h + y };
-                            width = if width > (w + x) { width } else { w + x };
-                        }
+                        height = if height > (h + y) { height } else { h + y };
+                        width = if width > (w + x) { width } else { w + x };
                     }
                 }
             }
         }
 
-        let mut frame: Vec<Vec<char>> = Vec::with_capacity(height);
-        for _ in 0..height {
-            frame.push(std::iter::repeat('.').take(width).collect());
-        }
+        let frame = vec![vec!['.'; width]; height];
         let overlaps = 0;
 
         Ok(Self {
             frame,
-            squares_start,
-            squares_dimensions,
-            width,
-            height,
+            squares,
             overlaps,
         })
     }
 
     fn draw(&mut self) {
-
-        for _ in 0..self.height {
-            self.frame
-                .push(std::iter::repeat('.').take(self.width).collect());
-        }
-
-        for k in 0..self.squares_dimensions.len() {
-
-            let x = self.squares_start[k].0;
-            let y = self.squares_start[k].1;
-            let w = self.squares_dimensions[k].0;
-            let h = self.squares_dimensions[k].1;
+        for k in 0..self.squares.len() {
+            let x = self.squares[k].0;
+            let y = self.squares[k].1;
+            let w = self.squares[k].2;
+            let h = self.squares[k].3;
 
             for j in y..(y + h) {
                 for i in x..(x + w) {
@@ -91,6 +71,27 @@ impl Canvas {
             }
         }
     }
+
+    fn find_pure_claim(&self) -> Option<usize> {
+        let mut claim = 0;
+        for &(x, y, w, h) in &self.squares {
+            claim += 1;
+            let mut size = 0;
+            for j in y..(y + h) {
+                for i in x..(x + w) {
+                    if self.frame[j][i] == '#' {
+                        size += 1;
+                    } else {
+                        break;
+                    }
+                }
+            }
+            if size == w * h {
+                return Some(claim);
+            }
+        }
+        None
+    }
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -101,6 +102,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     canvas.draw();
 
     println!("Part one: {} overlaps", canvas.overlaps);
+
+    if let Some(claim) = canvas.find_pure_claim() {
+        println!("Part two: claim {} is pure", claim);
+    }
 
     Ok(())
 }
