@@ -53,12 +53,7 @@ impl Canvas {
     }
 
     fn draw(&mut self) {
-        for k in 0..self.squares.len() {
-            let x = self.squares[k].0;
-            let y = self.squares[k].1;
-            let w = self.squares[k].2;
-            let h = self.squares[k].3;
-
+        for &(x, y, w, h) in &self.squares {
             for j in y..(y + h) {
                 for i in x..(x + w) {
                     if self.frame[j][i] == '.' {
